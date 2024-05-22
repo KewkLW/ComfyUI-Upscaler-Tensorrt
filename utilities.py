@@ -132,11 +132,9 @@ class TQDMProgressMonitor(trt.IProgressMonitor):
 
 
 class Engine:
-    def __init__(
-        self,
-        engine_path,
-    ):
+    def __init__(self, engine_path, keep_model_loaded=False):
         self.engine_path = engine_path
+        self.keep_model_loaded = keep_model_loaded
         self.engine = None
         self.context = None
         self.buffers = OrderedDict()
@@ -144,22 +142,26 @@ class Engine:
         self.cuda_graph_instance = None  # cuda graph
 
     def __del__(self):
-        del self.engine
-        del self.context
-        del self.buffers
-        del self.tensors
+        if not self.keep_model_loaded:
+            print(f"Unloading TensorRT engine: {self.engine_path}")
+            del self.engine
+            del self.context
+            del self.buffers
+            del self.tensors
 
     def reset(self, engine_path=None):
-        del self.engine
-        del self.context
-        del self.buffers
-        del self.tensors
-        self.engine_path = engine_path
+        if not self.keep_model_loaded:
+            print(f"Resetting TensorRT engine: {self.engine_path}")
+            del self.engine
+            del self.context
+            del self.buffers
+            del self.tensors
+            self.engine_path = engine_path
 
-        self.buffers = OrderedDict()
-        self.tensors = OrderedDict()
-        self.inputs = {}
-        self.outputs = {}
+            self.buffers = OrderedDict()
+            self.tensors = OrderedDict()
+            self.inputs = {}
+            self.outputs = {}
 
     def build(
         self,
@@ -223,8 +225,9 @@ class Engine:
         return 0
 
     def load(self):
-        print(f"Loading TensorRT engine: {self.engine_path}")
-        self.engine = engine_from_bytes(bytes_from_path(self.engine_path))
+        if not self.keep_model_loaded or self.engine is None:
+            print(f"Loading TensorRT engine: {self.engine_path}")
+            self.engine = engine_from_bytes(bytes_from_path(self.engine_path))
 
     def activate(self, reuse_device_memory=None):
         if reuse_device_memory:
